@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+
+# Block the virtual environment folder
+virtenv/
+
+# Block any .env file in the root directory
+.env
+
+# Block any .env file inside any subdirectory (like backend/.env)
+**/.env
+*.env
