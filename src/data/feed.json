@@ -1,0 +1,224 @@
+{
+  "ads": [
+    {
+      "id": "ad_001",
+      "brand": {
+        "name": "BannerCo",
+        "username": "@BannerCo",
+        "avatar": "B",
+        "verified": true
+      },
+      "content": {
+        "headline": "Discover the future of digital rewards. Watch, engage and earn every single day! 🚀",
+        "category": "Digital Marketing",
+        "isAd": true,
+        "thumbnail": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=500&auto=format"
+      },
+      "earnings": 50,
+      "stats": {
+        "likes": 124000,
+        "comments": 1200,
+        "bookmarks": 45000,
+        "shares": 12000
+      }
+    },
+    {
+      "id": "ad_002",
+      "brand": {
+        "name": "Nike",
+        "username": "@Nike",
+        "avatar": "N",
+        "verified": true
+      },
+      "content": {
+        "headline": "Just Do It. New Air Max collection dropping soon! 🔥",
+        "category": "Fashion",
+        "isAd": true,
+        "thumbnail": "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500&auto=format"
+      },
+      "earnings": 75,
+      "stats": {
+        "likes": 89000,
+        "comments": 3400,
+        "bookmarks": 23000,
+        "shares": 5600
+      }
+    },
+    {
+      "id": "ad_003",
+      "brand": {
+        "name": "Spotify",
+        "username": "@Spotify",
+        "avatar": "S",
+        "verified": true
+      },
+      "content": {
+        "headline": "Your summer playlist is waiting. Get 3 months free! 🎵",
+        "category": "Music",
+        "isAd": true,
+        "thumbnail": "https://images.unsplash.com/photo-1611339555312-f607c0842fd1?w=500&auto=format"
+      },
+      "earnings": 40,
+      "stats": {
+        "likes": 156000,
+        "comments": 2800,
+        "bookmarks": 67000,
+        "shares": 18900
+      }
+    },
+    {
+      "id": "ad_004",
+      "brand": {
+        "name": "Uber Eats",
+        "username": "@UberEats",
+        "avatar": "U",
+        "verified": true
+      },
+      "content": {
+        "headline": "Hungry? Get 50% off your first 5 orders! 🍔",
+        "category": "Food",
+        "isAd": true,
+        "thumbnail": "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=500&auto=format"
+      },
+      "earnings": 30,
+      "stats": {
+        "likes": 67000,
+        "comments": 1900,
+        "bookmarks": 12000,
+        "shares": 8900
+      }
+    },
+    {
+      "id": "ad_005",
+      "brand": {
+        "name": "Tesla",
+        "username": "@Tesla",
+        "avatar": "T",
+        "verified": true
+      },
+      "content": {
+        "headline": "Experience the future of driving. Schedule a test drive today! ⚡",
+        "category": "Automotive",
+        "isAd": true,
+        "thumbnail": "https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=500&auto=format"
+      },
+      "earnings": 100,
+      "stats": {
+        "likes": 234000,
+        "comments": 5600,
+        "bookmarks": 89000,
+        "shares": 45000
+      }
+    },
+    {
+      "id": "ad_006",
+      "brand": {
+        "name": "Coca-Cola",
+        "username": "@CocaCola",
+        "avatar": "C",
+        "verified": true
+      },
+      "content": {
+        "headline": "Taste the feeling. Share a Coke with someone special today! 🥤",
+        "category": "Beverages",
+        "isAd": true,
+        "thumbnail": "https://images.unsplash.com/photo-1554866585-cd94860890b7?w=500&auto=format"
+      },
+      "earnings": 45,
+      "stats": {
+        "likes": 178000,
+        "comments": 3200,
+        "bookmarks": 56000,
+        "shares": 23400
+      }
+    },
+    {
+      "id": "ad_007",
+      "brand": {
+        "name": "Samsung",
+        "username": "@Samsung",
+        "avatar": "S",
+        "verified": true
+      },
+      "content": {
+        "headline": "The new Galaxy Z Fold is here. Fold the future! 📱",
+        "category": "Technology",
+        "isAd": true,
+        "thumbnail": "https://images.unsplash.com/photo-1610945415295-d9bbf067e59c?w=500&auto=format"
+      },
+      "earnings": 85,
+      "stats": {
+        "likes": 198000,
+        "comments": 6700,
+        "bookmarks": 78000,
+        "shares": 32100
+      }
+    },
+    {
+      "id": "ad_008",
+      "brand": {
+        "name": "Airbnb",
+        "username": "@Airbnb",
+        "avatar": "A",
+        "verified": true
+      },
+      "content": {
+        "headline": "Book unique homes and experiences all over the world! 🌍",
+        "category": "Travel",
+        "isAd": true,
+        "thumbnail": "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500&auto=format"
+      },
+      "earnings": 60,
+      "stats": {
+        "likes": 145000,
+        "comments": 4300,
+        "bookmarks": 67000,
+        "shares": 28900
+      }
+    },
+    {
+      "id": "ad_009",
+      "brand": {
+        "name": "Adidas",
+        "username": "@Adidas",
+        "avatar": "A",
+        "verified": true
+      },
+      "content": {
+        "headline": "Impossible is nothing. New Ultraboost just dropped! 👟",
+        "category": "Sportswear",
+        "isAd": true,
+        "thumbnail": "https://images.unsplash.com/photo-1556906781-9a412961c28c?w=500&auto=format"
+      },
+      "earnings": 55,
+      "stats": {
+        "likes": 167000,
+        "comments": 3900,
+        "bookmarks": 54000,
+        "shares": 18700
+      }
+    },
+    {
+      "id": "ad_010",
+      "brand": {
+        "name": "Netflix",
+        "username": "@Netflix",
+        "avatar": "N",
+        "verified": true
+      },
+      "content": {
+        "headline": "New season dropping this Friday. Binge-worthy content awaits! 🍿",
+        "category": "Entertainment",
+        "isAd": true,
+        "thumbnail": "https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=500&auto=format"
+      },
+      "earnings": 35,
+      "stats": {
+        "likes": 289000,
+        "comments": 8900,
+        "bookmarks": 123000,
+        "shares": 45600
+      }
+    }
+  ]
+}

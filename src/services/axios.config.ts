@@ -1,0 +1,23 @@
+import axios from "axios";
+
+const axiosInstance = axios.create({
+  baseURL: (import.meta as unknown as { env: Record<string, string> }).env.VITE_API_URL,
+  timeout: 10000,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Request interceptor — attach auth token when available
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("token");
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error: unknown) => Promise.reject(error),
+);
+
+export default axiosInstance;

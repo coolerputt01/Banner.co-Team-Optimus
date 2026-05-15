@@ -1,0 +1,193 @@
+/* Import Tailwind */
+@import "tailwindcss";
+@source "../";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Custom theme variables */
+@theme {
+  /* Core Brand Colors */
+  --color-primary: #1DA1F2;
+  --color-primary-glow: rgba(29, 161, 242, 0.15);
+  --color-coral: #FF6B6B;
+  --color-yellow: #FFD93D;
+
+  /* Dark mode palette */
+  --color-dark-bg: #000000;
+  --color-dark-surface: #0f0f0f;
+  --color-dark-elevated: #18181b;
+  --color-dark-text-primary: #ffffff;
+  --color-dark-text-secondary: #a1a1aa;
+  --color-dark-text-caption: #52525b;
+
+  /* Light mode palette */
+  --color-light-bg: #ffffff;
+  --color-light-surface: #f4f4f5;
+  --color-light-text-primary: #09090b;
+  --color-light-text-secondary: #52525b;
+  --color-light-text-caption: #a1a1aa;
+
+  /* Slate overrides */
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-slate-600: #475569;
+  --color-slate-800: #1e293b;
+  --color-slate-900: #0f172a;
+
+  /* Font families */
+  --font-display: "Syne", sans-serif;
+  --font-body: "DM Sans", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Border radius */
+  --radius-card: 24px;
+  --radius-button: 12px;
+  --radius-pill: 50px;
+  --radius-DEFAULT: 0.5rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+}
+
+/* Base styles */
+html.dark {
+  background-color: var(--color-dark-bg);
+  color: var(--color-dark-text-primary);
+}
+
+html.light {
+  background-color: var(--color-light-bg);
+  color: var(--color-light-text-primary);
+}
+
+body {
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+}
+
+/* ─── Semantic adaptive utilities ─────────────────────────────────────────── */
+
+/* Main background: black in dark, white in light */
+@utility bg-main-bg {
+  @apply bg-white dark:bg-black;
+}
+
+/* Surface: slightly elevated card background */
+@utility bg-surface {
+  @apply bg-light-surface dark:bg-dark-surface;
+}
+
+/* Primary text */
+@utility text-text-main {
+  @apply text-light-text-primary dark:text-dark-text-primary;
+}
+@utility text-text-primary {
+  @apply text-light-text-primary dark:text-dark-text-primary;
+}
+
+/* Secondary / subdued text */
+@utility text-text-sub {
+  @apply text-light-text-secondary dark:text-dark-text-secondary;
+}
+@utility text-text-secondary {
+  @apply text-light-text-secondary dark:text-dark-text-secondary;
+}
+
+/* Caption text */
+@utility text-text-caption {
+  @apply text-light-text-caption dark:text-dark-text-caption;
+}
+
+/* Border subtle */
+@utility border-border-subtle {
+  @apply border-slate-200 dark:border-white/5;
+}
+
+/* ─── Inbox / Material-style token aliases ────────────────────────────────── */
+/* These map the Material Design-style tokens used in inbox components
+   to the actual design system values */
+
+@utility bg-background {
+  @apply bg-white dark:bg-black;
+}
+
+@utility text-on-surface {
+  @apply text-light-text-primary dark:text-dark-text-primary;
+}
+
+@utility text-on-surface-variant {
+  @apply text-light-text-secondary dark:text-dark-text-secondary;
+}
+
+@utility bg-surface-container-high {
+  @apply bg-slate-100 dark:bg-zinc-900;
+}
+
+@utility bg-surface-container-highest {
+  @apply bg-slate-200 dark:bg-zinc-800;
+}
+
+@utility bg-surface-container {
+  @apply bg-slate-50 dark:bg-zinc-950;
+}
+
+@utility border-outline-variant {
+  @apply border-slate-200 dark:border-white/10;
+}
+
+/* Tertiary accent (used in notification icons) */
+@utility text-tertiary {
+  @apply text-emerald-500;
+}
+
+@utility text-secondary {
+  @apply text-amber-500;
+}
+
+/* ─── Card / modal token aliases ─────────────────────────────────────────── */
+@utility bg-card {
+  @apply bg-light-surface dark:bg-dark-elevated;
+}
+
+@utility bg-card-dark {
+  @apply bg-zinc-900 dark:bg-zinc-900;
+}
+
+@utility border-default {
+  @apply border-slate-200 dark:border-white/10;
+}
+
+@utility text-muted {
+  @apply text-light-text-secondary dark:text-dark-text-secondary;
+}
+
+/* ─── Input field ─────────────────────────────────────────────────────────── */
+@utility input-field {
+  @apply w-full h-14 bg-light-surface dark:bg-dark-surface
+         border border-slate-200 dark:border-white/5
+         rounded-xl px-4 outline-none transition-all
+         text-light-text-primary dark:text-dark-text-primary
+         focus:border-primary focus:ring-1 focus:ring-primary;
+}
+
+/* ─── Video overlays ──────────────────────────────────────────────────────── */
+@utility video-overlay-dark {
+  background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.9) 100%);
+}
+
+@utility video-overlay-light {
+  background: linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(0,0,0,0.3) 100%);
+}
+
+/* ─── Scrollbar control ───────────────────────────────────────────────────── */
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
