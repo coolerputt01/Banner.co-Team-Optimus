@@ -12,6 +12,9 @@ class User(Base):
     banner_picture        = Column(String, nullable=True)
     bio                   = Column(Text, nullable=True)
     number_of_ads_watched = Column(Integer, nullable=False, default=0)
+    campaigns = relationship("Campaign", back_populates="user", cascade="all, delete-orphan")
+    wallet = relationship("Wallet", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    rewards = relationship("UserReward", back_populates="user", cascade="all, delete-orphan")
     total_ads_watch_time  = Column(Float, nullable=False, default=0.0)
     verified              = Column(Boolean, nullable=False, default=False)
     ads                   = relationship("Ad", back_populates="owner", cascade="all, delete-orphan")
@@ -32,6 +35,8 @@ class Ad(Base):
     comments = relationship("Comment", back_populates="ad", cascade="all, delete-orphan")
     views_count = Column(Integer, nullable=False, default=0)
     views = relationship("AdView", back_populates="ad", cascade="all, delete-orphan")
+    campaign = relationship("Campaign", back_populates="ad", uselist=False, cascade="all, delete-orphan")
+    rewards = relationship("UserReward", back_populates="ad", cascade="all, delete-orphan")
 
 
 class Like(Base):
@@ -71,3 +76,39 @@ class AdView(Base):
 
     ad   = relationship("Ad", back_populates="views")
     user = relationship("User", back_populates="ad_views")
+
+
+class Campaign(Base):
+    __tablename__ = "campaigns"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    ad_id = Column(String, ForeignKey("ads.id", ondelete="CASCADE"), nullable=False)
+    duration_days = Column(Integer, nullable=False)
+    amount_paid = Column(Numeric(10, 2), nullable=False)
+    payment_ref = Column(String, unique=True, nullable=False)
+    status = Column(String, default="pending")  # pending, active, completed
+    start_date = Column(DateTime(timezone=True), nullable=True)
+    end_date = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    user = relationship("User", back_populates="campaigns")
+    ad = relationship("Ad", back_populates="campaign")
+
+class Wallet(Base):
+    __tablename__ = "wallets"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    balance = Column(Numeric(10, 2), nullable=False, default=0.00)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    user = relationship("User", back_populates="wallet")
+
+class UserReward(Base):
+    __tablename__ = "user_rewards"
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    ad_id = Column(String, ForeignKey("ads.id", ondelete="CASCADE"), nullable=False)
+    reward_type = Column(String, nullable=False)  # VIEW, LIKE, COMMENT
+    amount = Column(Numeric(10, 2), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    status = Column(String, default="pending")  # pending, credited
+    user = relationship("User", back_populates="rewards")
+    ad = relationship("Ad", back_populates="rewards")

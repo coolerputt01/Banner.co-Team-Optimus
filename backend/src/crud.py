@@ -3,7 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from db_models import User, Ad
 from models import TokenData, UserUpdateRequest, AdCreateRequest
-from sqlalchemy import func
+from sqlalchemy import func, update, select
+from sqlalchemy.orm import selectinload
 import uuid
 
 async def get_user_by_id(db: AsyncSession, user_id: str) -> User | None:
@@ -166,3 +167,79 @@ async def has_user_viewed_ad(db: AsyncSession, ad_id: str, user_id: str) -> bool
         select(AdView).where(AdView.ad_id == ad_id, AdView.user_id == user_id)
     )
     return result.scalar_one_or_none() is not None
+
+async def create_campaign(db: AsyncSession, user_id: str, ad_id: str, duration_days: int, amount: float, payment_ref: str) -> Campaign:
+    campaign = Campaign(
+        id=str(uuid.uuid4()),
+        user_id=user_id,
+        ad_id=ad_id,
+        duration_days=duration_days,
+        amount_paid=amount,
+        payment_ref=payment_ref,
+        status="pending"
+    )
+    db.add(campaign)
+    await db.commit()
+    await db.refresh(campaign)
+    return campaign
+
+async def activate_campaign(db: AsyncSession, payment_ref: str):
+    """Activate campaign after successful payment and set its active period."""
+    result = await db.execute(select(Campaign).where(Campaign.payment_ref == payment_ref))
+    campaign = result.scalar_one_or_none()
+    if campaign:
+        campaign.status = "active"
+        campaign.start_date = func.now()
+        campaign.end_date = func.now() + timedelta(days=campaign.duration_days)
+        await db.commit()
+        return campaign
+    return None
+
+# Wallet Operations
+async def get_or_create_wallet(db: AsyncSession, user_id: str) -> Wallet:
+    result = await db.execute(select(Wallet).where(Wallet.user_id == user_id))
+    wallet = result.scalar_one_or_none()
+    if not wallet:
+        wallet = Wallet(id=str(uuid.uuid4()), user_id=user_id, balance=0.00)
+        db.add(wallet)
+        await db.commit()
+        await db.refresh(wallet)
+    return wallet
+
+async def credit_wallet(db: AsyncSession, user_id: str, amount: float, reward_id: str):
+    """Credit a user's wallet and mark the reward as credited."""
+    wallet = await get_or_create_wallet(db, user_id)
+    wallet.balance += amount
+    await db.execute(update(UserReward).where(UserReward.id == reward_id).values(status="credited"))
+    await db.commit()
+    return wallet
+
+# Reward Operations
+REWARD_AMOUNTS = {"VIEW": 50.00, "LIKE": 55.00, "COMMENT": 55.00}
+
+async def create_reward(db: AsyncSession, user_id: str, ad_id: str, reward_type: str):
+    """Create a reward entry for a user action."""
+    if reward_type not in REWARD_AMOUNTS:
+        return None
+    # Check for duplicates: user can earn a reward for a specific ad+action only once
+    result = await db.execute(select(UserReward).where(
+        UserReward.user_id == user_id,
+        UserReward.ad_id == ad_id,
+        UserReward.reward_type == reward_type
+    ))
+    if result.scalar_one_or_none():
+        return None
+    reward = UserReward(
+        id=str(uuid.uuid4()),
+        user_id=user_id,
+        ad_id=ad_id,
+        reward_type=reward_type,
+        amount=REWARD_AMOUNTS[reward_type],
+        status="pending"
+    )
+    db.add(reward)
+    await db.commit()
+    await db.refresh(reward)
+    # Immediately credit the wallet
+    await credit_wallet(db, user_id, reward.amount, reward.id)
+    return reward

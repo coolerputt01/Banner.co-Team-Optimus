@@ -108,3 +108,47 @@ class AdViewResponse(BaseModel):
 
 class ViewIncrementRequest(BaseModel):
     user_id: Optional[str] = None   # for optional user tracking
+
+class PaymentInitRequest(BaseModel):
+    ad_id: str
+    duration_days: int = 1   # only 1 day as per your spec
+
+class PaymentInitResponse(BaseModel):
+    checkout_url: str
+    payment_ref: str
+
+class PaymentVerifyResponse(BaseModel):
+    status: str
+    amount: Decimal
+    transaction_ref: str
+
+class CampaignResponse(BaseModel):
+    id: str
+    user_id: str
+    ad_id: str
+    duration_days: int
+    amount_paid: Decimal
+    status: str   # pending, active, completed
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+# ── Wallet / Reward schemas ──────────────────────────────────────
+
+class WalletResponse(BaseModel):
+    id: str
+    user_id: str
+    balance: Decimal
+    updated_at: Optional[datetime] = None
+    model_config = {"from_attributes": True}
+
+class UserRewardResponse(BaseModel):
+    id: str
+    user_id: str
+    ad_id: str
+    reward_type: str   # VIEW, LIKE, COMMENT
+    amount: Decimal
+    created_at: datetime
+    status: str
+    model_config = {"from_attributes": True}

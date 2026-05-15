@@ -1,18 +1,33 @@
 import secrets
 import httpx
+import uuid
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File, Form
-from src.cloudinary_upload import upload_media
+from datetime import datetime, timedelta
 from typing import List, Optional
-
+from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File, Form, Request
 from fastapi.responses import RedirectResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import settings, AUTH0_AUTHORIZE_URL, AUTH0_TOKEN_URL, AUTH0_LOGOUT_URL, CALLBACK_URL
+from src.cloudinary_upload import upload_media
+from src.squadco_service import initialize_payment, verify_payment, verify_webhook_signature
 from src.auth_route import get_current_user
 from database import engine, Base, get_db
-from models import TokenData, UserInfo, UserUpdateRequest, AuthResponse, AdCreateRequest, AdResponse, AdFeedResponse
-from src.crud import get_or_create_user, update_user, create_ad, get_ad_by_id, delete_ad, get_random_feed
+from config import settings, AUTH0_AUTHORIZE_URL, AUTH0_TOKEN_URL, AUTH0_LOGOUT_URL, CALLBACK_URL
+from models import (
+    TokenData, UserInfo, UserUpdateRequest, AuthResponse,
+    AdCreateRequest, AdResponse, AdFeedResponse,
+    CommentCreate, CommentResponse, AdViewResponse,
+    PaymentInitResponse, PaymentInitRequest, PaymentVerifyResponse,
+    CampaignResponse, WalletResponse, UserRewardResponse
+)
+from db_models import Campaign, User, Ad, Like, Comment, AdView, Wallet, UserReward
+from src.crud import (
+    get_or_create_user, update_user, create_ad, get_ad_by_id, delete_ad, get_random_feed,
+    create_campaign, activate_campaign, create_reward, like_ad, unlike_ad,
+    get_likes_count, get_like, record_view, get_ad_views_count, has_user_viewed_ad,
+    create_comment, get_comments_for_ad, get_comment_by_id, delete_comment
+)
 
 
 @asynccontextmanager
@@ -22,12 +37,14 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
     yield
 
-app = FastAPI(title="FastAPI + Auth0 Google OAuth", lifespan=lifespan)
+app = FastAPI(title="FastAPI + Auth0 Google OAuth (Monetized)", lifespan=lifespan)
 
 _state_store: set[str] = set()
 
 
-# ── Auth routes ────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+# Auth routes
+# ──────────────────────────────────────────────────────────────
 
 @app.get("/auth/login")
 def login():
@@ -45,7 +62,6 @@ def login():
     query = "&".join(f"{k}={v}" for k, v in params.items())
     return RedirectResponse(f"{AUTH0_AUTHORIZE_URL}?{query}")
 
-
 @app.get("/auth/callback", response_model=AuthResponse)
 async def callback(
     code:  str = Query(...),
@@ -56,7 +72,6 @@ async def callback(
         raise HTTPException(status_code=400, detail="Invalid state parameter")
     _state_store.discard(state)
 
-    # Exchange code for tokens
     async with httpx.AsyncClient() as client:
         token_resp = await client.post(
             AUTH0_TOKEN_URL,
@@ -74,7 +89,6 @@ async def callback(
     tokens = token_resp.json()
     access_token = tokens["access_token"]
 
-    # Fetch user info from Auth0
     async with httpx.AsyncClient() as client:
         userinfo_resp = await client.get(
             f"https://{settings.auth0_domain}/userinfo",
@@ -91,14 +105,8 @@ async def callback(
         picture=profile.get("picture"),
     )
 
-    # Upsert user in Postgres
     user = await get_or_create_user(db, token_data)
-
-    return AuthResponse(
-        access_token=access_token,
-        user=UserInfo.model_validate(user),
-    )
-
+    return AuthResponse(access_token=access_token, user=UserInfo.model_validate(user))
 
 @app.get("/auth/logout")
 def logout():
@@ -109,7 +117,9 @@ def logout():
     )
 
 
-# ── User routes ────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+# User routes
+# ──────────────────────────────────────────────────────────────
 
 @app.get("/users/me", response_model=UserInfo)
 async def get_my_profile(
@@ -118,7 +128,6 @@ async def get_my_profile(
 ):
     user = await get_or_create_user(db, current_user)
     return UserInfo.model_validate(user)
-
 
 @app.put("/users/me", response_model=UserInfo)
 async def update_my_profile(
@@ -135,9 +144,7 @@ async def update_my_profile(
     if profile_picture:
         file_bytes = await profile_picture.read()
         try:
-            profile_picture_url = await upload_media(
-                file_bytes, profile_picture.content_type, folder="profile_pictures"
-            )
+            profile_picture_url = await upload_media(file_bytes, profile_picture.content_type, folder="profile_pictures")
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
@@ -145,9 +152,7 @@ async def update_my_profile(
     if banner_picture:
         file_bytes = await banner_picture.read()
         try:
-            banner_picture_url = await upload_media(
-                file_bytes, banner_picture.content_type, folder="banner_pictures"
-            )
+            banner_picture_url = await upload_media(file_bytes, banner_picture.content_type, folder="banner_pictures")
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 
@@ -161,37 +166,110 @@ async def update_my_profile(
     return UserInfo.model_validate(updated)
 
 
+# ──────────────────────────────────────────────────────────────
+# Health
+# ──────────────────────────────────────────────────────────────
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
-# ── Ad routes ──────────────────────────────────────────────────
+
+# ──────────────────────────────────────────────────────────────
+# Payment / Campaign (pay before ad creation)
+# ──────────────────────────────────────────────────────────────
+
+@app.post("/campaigns/initiate", response_model=PaymentInitResponse)
+async def initiate_campaign_payment(
+    duration_days: int = 1,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    amount = 499.00 * duration_days
+    payment_ref = f"CAMP_{current_user.sub}_{uuid.uuid4().hex}"
+    squad_response = await initialize_payment(
+        amount=amount,
+        email=current_user.email,
+        user_id=current_user.sub,
+        payment_ref=payment_ref,
+        ad_id=None
+    )
+    campaign = Campaign(
+        id=str(uuid.uuid4()),
+        user_id=current_user.sub,
+        duration_days=duration_days,
+        amount_paid=amount,
+        payment_ref=payment_ref,
+        status="pending"
+    )
+    db.add(campaign)
+    await db.commit()
+    return PaymentInitResponse(
+        checkout_url=squad_response["data"]["auth_url"],
+        payment_ref=payment_ref
+    )
+
+@app.post("/webhook/squadco")
+async def squadco_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    body = await request.body()
+    signature = request.headers.get("x-squad-encrypted-body", "")
+    if not await verify_webhook_signature(body, signature, settings.SQUAD_SECRET_HASH):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+    payload = await request.json()
+    if payload.get("Event") == "charge_successful":
+        transaction_ref = payload.get("TransactionRef")
+        verification = await verify_payment(transaction_ref)
+        if verification.get("data", {}).get("transaction_status") == "Success":
+            await activate_campaign(db, transaction_ref)
+    return {"status": "ok"}
+
+
+# ──────────────────────────────────────────────────────────────
+# Ad creation (requires paid campaign)
+# ──────────────────────────────────────────────────────────────
 
 @app.post("/ads", response_model=AdResponse, status_code=201)
 async def create_ad_post(
     title: str = Form(...),
     description: Optional[str] = Form(None),
-    tags: List[str] = Form([]),         # send as repeated form fields: tags=a&tags=b
+    tags: List[str] = Form([]),
     media: Optional[UploadFile] = File(None),
+    campaign_id: str = Form(...),
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # Validate tag count
-    if len(tags) > 5:
-        raise HTTPException(status_code=400, detail="Maximum 5 tags allowed")
+    # Verify campaign belongs to user and is in 'paid' status
+    result = await db.execute(
+        select(Campaign).where(
+            Campaign.id == campaign_id,
+            Campaign.user_id == current_user.sub,
+            Campaign.status == "paid"
+        )
+    )
+    campaign = result.scalar_one_or_none()
+    if not campaign:
+        raise HTTPException(status_code=400, detail="No valid paid campaign found")
 
-    # Upload media to Cloudinary if provided
+    # Upload media if provided
     media_url = None
     if media:
         file_bytes = await media.read()
-        try:
-            media_url = await upload_media(file_bytes, media.content_type)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+        media_url = await upload_media(file_bytes, media.content_type)
 
-    # Build payload and save
     payload = AdCreateRequest(title=title, description=description, tags=tags)
     ad = await create_ad(db, current_user.sub, payload, media_url)
+
+    # Link campaign to ad and activate it
+    campaign.ad_id = ad.id
+    campaign.status = "active"
+    campaign.start_date = datetime.utcnow()
+    campaign.end_date = datetime.utcnow() + timedelta(days=campaign.duration_days)
+    await db.commit()
+    await db.refresh(ad)
+
     return AdResponse.model_validate(ad)
 
 @app.delete("/ads/{ad_id}", status_code=204)
@@ -208,7 +286,9 @@ async def delete_ad_post(
     await delete_ad(db, ad)
 
 
-# ── Feed route ─────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────
+# Feed – only shows ads from active (paid) campaigns
+# ──────────────────────────────────────────────────────────────
 
 @app.get("/feed", response_model=AdFeedResponse)
 async def get_feed(
@@ -216,18 +296,18 @@ async def get_feed(
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Returns `limit` ads in random order — TikTok style.
-    Call again to get a new shuffle. Max 50 per call.
-    """
     if limit > 50:
         raise HTTPException(status_code=400, detail="Max limit is 50")
-
     ads = await get_random_feed(db, limit)
     return AdFeedResponse(
         ads=[AdResponse.model_validate(ad) for ad in ads],
         total=len(ads),
     )
+
+
+# ──────────────────────────────────────────────────────────────
+# Likes (with reward for engagement)
+# ──────────────────────────────────────────────────────────────
 
 @app.post("/ads/{ad_id}/like", status_code=201)
 async def like_an_ad(
@@ -235,12 +315,12 @@ async def like_an_ad(
     current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    # Verify ad exists
     ad = await get_ad_by_id(db, ad_id)
     if not ad:
         raise HTTPException(status_code=404, detail="Ad not found")
     await like_ad(db, current_user.sub, ad_id)
-    return {"message": "Ad liked"}
+    await create_reward(db, current_user.sub, ad_id, "LIKE")
+    return {"message": "Ad liked and reward recorded"}
 
 @app.delete("/ads/{ad_id}/like", status_code=204)
 async def unlike_an_ad(
@@ -259,11 +339,8 @@ async def get_likes(
     db: AsyncSession = Depends(get_db),
 ):
     count = await get_likes_count(db, ad_id)
-    # Optionally, also return whether current user has liked it (if authenticated)
-    # We'll add optional current_user dependency later.
     return {"ad_id": ad_id, "likes": count}
 
-# Optional: endpoint to check if user liked an ad
 @app.get("/ads/{ad_id}/is-liked")
 async def is_ad_liked_by_user(
     ad_id: str,
@@ -273,7 +350,10 @@ async def is_ad_liked_by_user(
     like = await get_like(db, current_user.sub, ad_id)
     return {"liked": like is not None}
 
-# ── Comment endpoints ──────────────────────────────────────────
+
+# ──────────────────────────────────────────────────────────────
+# Comments (with reward for engagement)
+# ──────────────────────────────────────────────────────────────
 
 @app.post("/ads/{ad_id}/comments", response_model=CommentResponse, status_code=201)
 async def add_comment(
@@ -286,6 +366,7 @@ async def add_comment(
     if not ad:
         raise HTTPException(status_code=404, detail="Ad not found")
     comment = await create_comment(db, current_user.sub, ad_id, payload.content)
+    await create_reward(db, current_user.sub, ad_id, "COMMENT")
     return CommentResponse.model_validate(comment)
 
 @app.get("/ads/{ad_id}/comments", response_model=list[CommentResponse])
@@ -307,7 +388,6 @@ async def delete_comment_endpoint(
     comment = await get_comment_by_id(db, comment_id)
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
-    # Only comment owner or ad owner can delete
     ad = await get_ad_by_id(db, comment.ad_id)
     if comment.user_id != current_user.sub and (not ad or ad.user_id != current_user.sub):
         raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
@@ -315,26 +395,22 @@ async def delete_comment_endpoint(
     return None
 
 
+# ──────────────────────────────────────────────────────────────
+# Views (with reward for view, authenticated only)
+# ──────────────────────────────────────────────────────────────
+
 @app.post("/ads/{ad_id}/view", status_code=200)
 async def record_ad_view(
     ad_id: str,
-    request: Request,
-    current_user: Optional[TokenData] = Depends(get_current_user),  # see note below
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    Record a view for an ad. Call this when the ad is actually seen (e.g., on screen for 2 seconds).
-    Uses optional authentication to prevent duplicate views from same user.
-    """
     ad = await get_ad_by_id(db, ad_id)
     if not ad:
         raise HTTPException(status_code=404, detail="Ad not found")
-
-    user_id = current_user.sub if current_user else None
-    client_ip = request.client.host if request.client else None
-
-    was_counted = await record_view(db, ad_id, user_id, client_ip)
-
+    was_counted = await record_view(db, ad_id, current_user.sub)
+    if was_counted:
+        await create_reward(db, current_user.sub, ad_id, "VIEW")
     return {
         "ad_id": ad_id,
         "new_view_recorded": was_counted,
@@ -344,16 +420,12 @@ async def record_ad_view(
 @app.get("/ads/{ad_id}/views", response_model=AdViewResponse)
 async def get_views(
     ad_id: str,
-    current_user: Optional[TokenData] = Depends(get_current_user),
+    current_user: TokenData = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     ad = await get_ad_by_id(db, ad_id)
     if not ad:
         raise HTTPException(status_code=404, detail="Ad not found")
-
     total = await get_ad_views_count(db, ad_id)
-    user_viewed = False
-    if current_user:
-        user_viewed = await has_user_viewed_ad(db, ad_id, current_user.sub)
-
+    user_viewed = await has_user_viewed_ad(db, ad_id, current_user.sub)
     return AdViewResponse(ad_id=ad_id, total_views=total, user_viewed=user_viewed)
