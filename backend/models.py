@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional, List
 import uuid
+from datetime import datetime
 
 class TokenData(BaseModel):
     sub: str
@@ -73,3 +74,37 @@ class AdFeedResponse(BaseModel):
     ads: List[AdResponse]
     total: int
     model_config = {"from_attributes": True}
+
+class LikeResponse(BaseModel):
+    user_id: str
+    ad_id: str
+    created_at: datetime
+
+class CommentCreate(BaseModel):
+    content: str
+
+    @field_validator("content")
+    @classmethod
+    def content_not_empty(cls, v):
+        if not v or not v.strip():
+            raise ValueError("Comment cannot be empty")
+        return v.strip()
+
+class CommentResponse(BaseModel):
+    id: str
+    ad_id: str
+    user_id: str
+    content: str
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    user: Optional[UserInfo] = None   # optionally include user details
+
+    model_config = {"from_attributes": True}
+
+class AdViewResponse(BaseModel):
+    ad_id: str
+    total_views: int
+    user_viewed: bool = False   # for current user
+
+class ViewIncrementRequest(BaseModel):
+    user_id: Optional[str] = None   # for optional user tracking

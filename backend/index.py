@@ -228,3 +228,132 @@ async def get_feed(
         ads=[AdResponse.model_validate(ad) for ad in ads],
         total=len(ads),
     )
+
+@app.post("/ads/{ad_id}/like", status_code=201)
+async def like_an_ad(
+    ad_id: str,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    # Verify ad exists
+    ad = await get_ad_by_id(db, ad_id)
+    if not ad:
+        raise HTTPException(status_code=404, detail="Ad not found")
+    await like_ad(db, current_user.sub, ad_id)
+    return {"message": "Ad liked"}
+
+@app.delete("/ads/{ad_id}/like", status_code=204)
+async def unlike_an_ad(
+    ad_id: str,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    deleted = await unlike_ad(db, current_user.sub, ad_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Like not found")
+    return None
+
+@app.get("/ads/{ad_id}/likes")
+async def get_likes(
+    ad_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    count = await get_likes_count(db, ad_id)
+    # Optionally, also return whether current user has liked it (if authenticated)
+    # We'll add optional current_user dependency later.
+    return {"ad_id": ad_id, "likes": count}
+
+# Optional: endpoint to check if user liked an ad
+@app.get("/ads/{ad_id}/is-liked")
+async def is_ad_liked_by_user(
+    ad_id: str,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    like = await get_like(db, current_user.sub, ad_id)
+    return {"liked": like is not None}
+
+# ── Comment endpoints ──────────────────────────────────────────
+
+@app.post("/ads/{ad_id}/comments", response_model=CommentResponse, status_code=201)
+async def add_comment(
+    ad_id: str,
+    payload: CommentCreate,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    ad = await get_ad_by_id(db, ad_id)
+    if not ad:
+        raise HTTPException(status_code=404, detail="Ad not found")
+    comment = await create_comment(db, current_user.sub, ad_id, payload.content)
+    return CommentResponse.model_validate(comment)
+
+@app.get("/ads/{ad_id}/comments", response_model=list[CommentResponse])
+async def list_comments(
+    ad_id: str,
+    skip: int = 0,
+    limit: int = 50,
+    db: AsyncSession = Depends(get_db),
+):
+    comments = await get_comments_for_ad(db, ad_id, skip, limit)
+    return [CommentResponse.model_validate(c) for c in comments]
+
+@app.delete("/comments/{comment_id}", status_code=204)
+async def delete_comment_endpoint(
+    comment_id: str,
+    current_user: TokenData = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    comment = await get_comment_by_id(db, comment_id)
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    # Only comment owner or ad owner can delete
+    ad = await get_ad_by_id(db, comment.ad_id)
+    if comment.user_id != current_user.sub and (not ad or ad.user_id != current_user.sub):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
+    await delete_comment(db, comment)
+    return None
+
+
+@app.post("/ads/{ad_id}/view", status_code=200)
+async def record_ad_view(
+    ad_id: str,
+    request: Request,
+    current_user: Optional[TokenData] = Depends(get_current_user),  # see note below
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Record a view for an ad. Call this when the ad is actually seen (e.g., on screen for 2 seconds).
+    Uses optional authentication to prevent duplicate views from same user.
+    """
+    ad = await get_ad_by_id(db, ad_id)
+    if not ad:
+        raise HTTPException(status_code=404, detail="Ad not found")
+
+    user_id = current_user.sub if current_user else None
+    client_ip = request.client.host if request.client else None
+
+    was_counted = await record_view(db, ad_id, user_id, client_ip)
+
+    return {
+        "ad_id": ad_id,
+        "new_view_recorded": was_counted,
+        "total_views": await get_ad_views_count(db, ad_id),
+    }
+
+@app.get("/ads/{ad_id}/views", response_model=AdViewResponse)
+async def get_views(
+    ad_id: str,
+    current_user: Optional[TokenData] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    ad = await get_ad_by_id(db, ad_id)
+    if not ad:
+        raise HTTPException(status_code=404, detail="Ad not found")
+
+    total = await get_ad_views_count(db, ad_id)
+    user_viewed = False
+    if current_user:
+        user_viewed = await has_user_viewed_ad(db, ad_id, current_user.sub)
+
+    return AdViewResponse(ad_id=ad_id, total_views=total, user_viewed=user_viewed)
