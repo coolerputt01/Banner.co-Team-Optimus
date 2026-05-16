@@ -9,7 +9,8 @@ class Settings(BaseSettings):
     auth0_audience: str
 
     # App
-    app_base_url: str
+    app_base_url: str          # Backend base URL (used for Auth0 callback)
+    frontend_url: str          # Frontend URL (used for post-login redirect & CORS)
     secret_key: str
 
     # Database
@@ -40,4 +41,4 @@ AUTH0_LOGOUT_URL    = f"{AUTH0_BASE_URL}/v2/logout"
 
 # The callback URL Auth0 redirects to after login.
 # Must match exactly what is registered in your Auth0 app settings.
-CALLBACK_URL = "https://bannerco-backend.vercel.app/auth/callback"
+CALLBACK_URL = f"{settings.app_base_url}/auth/callback"

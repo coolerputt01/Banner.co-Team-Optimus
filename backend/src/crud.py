@@ -220,8 +220,8 @@ async def activate_campaign(db: AsyncSession, payment_ref: str) -> Optional[Camp
     )
     campaign = result.scalar_one_or_none()
     if campaign:
-        from datetime import datetime
-        now = datetime.utcnow()
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
         campaign.status = "paid"
         campaign.start_date = now
         campaign.end_date = now + timedelta(days=campaign.duration_days)

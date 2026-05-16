@@ -2,18 +2,20 @@ import secrets
 import httpx
 import uuid
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
 from fastapi import FastAPI, Depends, HTTPException, Query, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy import select, or_
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.cloudinary_upload import upload_media
 from src.squadco_service import initialize_payment, verify_payment, verify_webhook_signature
-from src.auth_route import get_current_user
+from src.auth_route import get_current_user, verify_token
 from database import engine, Base, get_db
 from config import settings, AUTH0_AUTHORIZE_URL, AUTH0_TOKEN_URL, CALLBACK_URL
 from models import (
@@ -48,9 +50,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://localhost:5173",
-        "https://bannerco-backend.vercel.app",
-        # Add your frontend Vercel URL here when deployed, e.g.:
-        # "https://banner-co.vercel.app",
+        settings.frontend_url,
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -59,6 +59,19 @@ app.add_middleware(
 
 # In-memory state store for OAuth CSRF protection
 _state_store: set[str] = set()
+
+# Optional auth dependency — returns user if token present, None for guests
+_optional_bearer = HTTPBearer(auto_error=False)
+
+async def get_optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_optional_bearer),
+) -> Optional[TokenData]:
+    if credentials is None:
+        return None
+    try:
+        return await verify_token(credentials.credentials)
+    except Exception:
+        return None
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
@@ -136,7 +149,7 @@ async def callback(
 
     # Redirect frontend to /auth/callback with token in query param
     # so the React AuthCallback page can pick it up
-    frontend_base = settings.app_base_url.rstrip("/")
+    frontend_base = settings.frontend_url.rstrip("/")
     redirect_url = f"{frontend_base}/auth/callback?access_token={access_token}"
     return RedirectResponse(redirect_url)
 
@@ -146,7 +159,7 @@ def logout():
     return RedirectResponse(
         f"https://{settings.auth0_domain}/v2/logout"
         f"?client_id={settings.auth0_client_id}"
-        f"&returnTo={settings.app_base_url}"
+        f"&returnTo={settings.frontend_url}"
     )
 
 
@@ -158,9 +171,12 @@ async def get_my_profile(
     db: AsyncSession = Depends(get_db),
 ):
     user = await get_or_create_user(db, current_user)
-    # Ensure wallet exists
+    # Ensure wallet exists then reload user with wallet eagerly loaded
     await get_or_create_wallet(db, user.id)
-    await db.refresh(user)
+    result = await db.execute(
+        select(User).options(selectinload(User.wallet)).where(User.id == user.id)
+    )
+    user = result.scalar_one()
     return UserInfo.model_validate(user)
 
 
@@ -213,6 +229,8 @@ async def initiate_campaign_payment(
     current_user:  TokenData     = Depends(get_current_user),
     db:            AsyncSession  = Depends(get_db),
 ):
+    if duration_days < 1 or duration_days > 365:
+        raise HTTPException(status_code=400, detail="duration_days must be between 1 and 365")
     amount = 499.00 * duration_days
     payment_ref = f"CAMP_{current_user.sub}_{uuid.uuid4().hex}"
 
@@ -278,9 +296,10 @@ async def create_ad_endpoint(
     db:           AsyncSession         = Depends(get_db),
 ):
     # Verify campaign belongs to user and is paid
+    # campaign_id may be either the campaign UUID or the payment_ref
     result = await db.execute(
         select(Campaign).where(
-            Campaign.id == campaign_id,
+            or_(Campaign.id == campaign_id, Campaign.payment_ref == campaign_id),
             Campaign.user_id == current_user.sub,
             Campaign.status == "paid",
         )
@@ -300,8 +319,8 @@ async def create_ad_endpoint(
     # Link campaign → ad and activate
     campaign.ad_id = ad.id
     campaign.status = "active"
-    campaign.start_date = datetime.utcnow()
-    campaign.end_date = datetime.utcnow() + timedelta(days=campaign.duration_days)
+    campaign.start_date = datetime.now(timezone.utc)
+    campaign.end_date = datetime.now(timezone.utc) + timedelta(days=campaign.duration_days)
     await db.commit()
     await db.refresh(ad)
 
@@ -327,7 +346,7 @@ async def delete_ad_endpoint(
 @app.get("/feed", response_model=AdFeedResponse)
 async def get_feed(
     limit:        int        = Query(10, le=50),
-    current_user: TokenData  = Depends(get_current_user),
+    current_user: Optional[TokenData]  = Depends(get_optional_user),
     db:           AsyncSession = Depends(get_db),
 ):
     ads = await get_random_feed(db, limit)
