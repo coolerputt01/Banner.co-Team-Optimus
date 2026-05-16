@@ -73,6 +73,12 @@ class AdResponse(BaseModel):
     media_url: Optional[str] = None
     tags: List[str] = []
     views_count: int = 0
+
+    @field_validator("tags", mode="before")
+    @classmethod
+    def tags_not_none(cls, v: object) -> List[str]:
+        return v if isinstance(v, list) else []
+
     model_config = {"from_attributes": True}
 
 
