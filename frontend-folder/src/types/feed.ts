@@ -4,7 +4,7 @@ export interface Ad {
   title: string
   description?: string | null
   media_url?: string | null
-  tags: string[]
+  tags: string[]   // backend always returns [] not null
   likes?: number
   comments?: number
   views_count?: number

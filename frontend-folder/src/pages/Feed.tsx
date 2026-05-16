@@ -160,9 +160,9 @@ const AdCard: React.FC<AdCardProps> = ({ ad, isActive, isAuthenticated, onCommen
         {ad.description && (
           <p className="text-white/70 text-sm line-clamp-2 mb-3">{ad.description}</p>
         )}
-        {ad.tags.length > 0 && (
+        {(ad.tags ?? []).length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {ad.tags.slice(0, 4).map((tag) => (
+            {(ad.tags ?? []).slice(0, 4).map((tag) => (
               <span
                 key={tag}
                 className="text-[10px] font-black uppercase tracking-wider bg-white/10 text-white/80 px-2 py-0.5 rounded-full border border-white/10"
