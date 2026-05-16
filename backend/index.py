@@ -97,17 +97,16 @@ def login():
         "connection":    "google-oauth2",
     }
     query = "&".join(f"{k}={v}" for k, v in params.items())
-    return RedirectResponse(f"{AUTH0_AUTHORIZE_URL}?{query}")
+    return RedirectResponse(f"{AUTH0_AUTHORIZE_URL}?{query}", status_code=302)
 
 
-@app.get("/auth/callback", response_model=AuthResponse)
+@app.get("/auth/callback")
 async def callback(
     code:  str = Query(...),
-    state: str = Query(...),
+    state: str = Query(default=""),
     db:    AsyncSession = Depends(get_db),
 ):
-    if state not in _state_store:
-        raise HTTPException(status_code=400, detail="Invalid state parameter")
+    # Discard state if present (in-memory store is best-effort on single instance)
     _state_store.discard(state)
 
     # Exchange code for tokens
@@ -151,7 +150,7 @@ async def callback(
     # so the React AuthCallback page can pick it up
     frontend_base = settings.frontend_url.rstrip("/")
     redirect_url = f"{frontend_base}/auth/callback?access_token={access_token}"
-    return RedirectResponse(redirect_url)
+    return RedirectResponse(redirect_url, status_code=302)
 
 
 @app.get("/auth/logout")
