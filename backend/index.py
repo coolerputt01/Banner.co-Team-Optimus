@@ -102,10 +102,23 @@ def login():
 
 @app.get("/auth/callback")
 async def callback(
-    code:  str = Query(...),
-    state: str = Query(default=""),
+    code:              str = Query(default=""),
+    state:             str = Query(default=""),
+    error:             str = Query(default=""),
+    error_description: str = Query(default=""),
     db:    AsyncSession = Depends(get_db),
 ):
+    # Auth0 returned an error — redirect to frontend splash
+    if error:
+        frontend_base = settings.frontend_url.rstrip("/")
+        return RedirectResponse(
+            f"{frontend_base}/?auth_error={error}",
+            status_code=302,
+        )
+
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing authorization code")
+
     # Discard state if present (in-memory store is best-effort on single instance)
     _state_store.discard(state)
 
