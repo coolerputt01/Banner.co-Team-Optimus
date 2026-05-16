@@ -49,7 +49,6 @@ async def verify_token(token: str) -> TokenData:
             token,
             rsa_key,
             algorithms=["RS256"],
-            audience=settings.auth0_audience,
             issuer=f"{AUTH0_BASE_URL}/",
         )
 

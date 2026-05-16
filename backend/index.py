@@ -92,7 +92,6 @@ def login():
         "client_id":     settings.auth0_client_id,
         "redirect_uri":  CALLBACK_URL,
         "scope":         "openid profile email",
-        "audience":      settings.auth0_audience,
         "state":         state,
         "connection":    "google-oauth2",
     }
