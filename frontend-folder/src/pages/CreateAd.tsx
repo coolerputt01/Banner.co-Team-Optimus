@@ -2,7 +2,8 @@ import React, { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Navigation } from '@/components/navigation/Navigation'
 import { initiateCampaign, createAd } from '@/services/api'
-import { ArrowLeft, Upload, X, Check, Tag } from 'lucide-react'
+import { useAiSuggestion } from '@/hooks/useAiSuggestion'
+import { ArrowLeft, Upload, X, Check, Tag, Sparkles, RefreshCw } from 'lucide-react'
 
 // ─── Campaign duration options ────────────────────────────────────────────────
 const DURATIONS = [
@@ -120,6 +121,8 @@ interface Step2Props {
 
 const Step2: React.FC<Step2Props> = ({ paymentRef }) => {
   const navigate = useNavigate()
+  const { suggest, loading: aiLoading, error: aiError, clearError: clearAiError } = useAiSuggestion()
+
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [mediaFile, setMediaFile] = useState<File | null>(null)
@@ -128,6 +131,11 @@ const Step2: React.FC<Step2Props> = ({ paymentRef }) => {
   const [tags, setTags] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  // AI assistant state
+  const [aiInput, setAiInput] = useState('')
+  const [aiApplied, setAiApplied] = useState(false)
+
   const fileRef = useRef<HTMLInputElement>(null)
 
   const handleMedia = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -147,6 +155,17 @@ const Step2: React.FC<Step2Props> = ({ paymentRef }) => {
 
   const removeTag = (tag: string) => setTags((prev) => prev.filter((t) => t !== tag))
 
+  const handleAiSuggest = async () => {
+    clearAiError()
+    const result = await suggest(aiInput || title)
+    if (result) {
+      setTitle(result.title)
+      setDescription(result.description)
+      setTags(result.tags)
+      setAiApplied(true)
+    }
+  }
+
   const handleSubmit = async () => {
     if (!title.trim()) { setError('Title is required'); return }
     if (!mediaFile) { setError('Please upload a media file'); return }
@@ -158,7 +177,6 @@ const Step2: React.FC<Step2Props> = ({ paymentRef }) => {
       if (description.trim()) fd.append('description', description.trim())
       fd.append('media', mediaFile)
       tags.forEach((t) => fd.append('tags', t))
-      // campaign_id from payment_ref — backend links them
       fd.append('campaign_id', paymentRef)
       await createAd(fd)
       localStorage.removeItem('banner_payment_ref')
@@ -179,6 +197,52 @@ const Step2: React.FC<Step2Props> = ({ paymentRef }) => {
         <p className="text-text-sub text-sm">
           Payment confirmed. Now set up your ad content.
         </p>
+      </div>
+
+      {/* ── AI Assistant Panel ─────────────────────────────────────── */}
+      <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <span className="text-xs font-black uppercase tracking-widest text-primary">
+            AI Ad Assistant
+          </span>
+          {aiApplied && (
+            <span className="ml-auto text-[10px] font-black uppercase tracking-wider text-emerald-500 flex items-center gap-1">
+              <Check className="h-3 w-3" /> Applied
+            </span>
+          )}
+        </div>
+
+        <p className="text-text-sub text-xs leading-relaxed">
+          Describe your business or product in plain words — AI will write your title, description, and tags.
+        </p>
+
+        <div className="flex gap-2">
+          <input
+            value={aiInput}
+            onChange={(e) => { setAiInput(e.target.value); setAiApplied(false) }}
+            onKeyDown={(e) => e.key === 'Enter' && handleAiSuggest()}
+            placeholder='e.g. "I sell handmade leather bags in Lagos"'
+            className="flex-1 bg-main-bg border border-border-subtle rounded-xl px-3 py-2.5 text-sm text-text-main outline-none focus:border-primary transition-colors placeholder:text-text-sub/50"
+          />
+          <button
+            onClick={handleAiSuggest}
+            disabled={aiLoading || (!aiInput.trim() && !title.trim())}
+            className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2.5 bg-primary text-white font-black text-xs rounded-xl uppercase tracking-wider disabled:opacity-40 hover:brightness-110 transition-all active:scale-[0.97]"
+          >
+            {aiLoading ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : aiApplied ? (
+              <><RefreshCw className="h-3.5 w-3.5" /> Redo</>
+            ) : (
+              <><Sparkles className="h-3.5 w-3.5" /> Generate</>
+            )}
+          </button>
+        </div>
+
+        {aiError && (
+          <p className="text-red-400 text-xs font-bold">{aiError}</p>
+        )}
       </div>
 
       {/* Media upload */}
