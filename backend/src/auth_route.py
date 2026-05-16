@@ -1,66 +1,40 @@
-import httpx
-from jose import jwt, JWTError
+import jwt as pyjwt
 from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from config import settings, AUTH0_JWKS_URL, AUTH0_BASE_URL
+from config import settings
 from models import TokenData
 
 security = HTTPBearer()
 
-# Cache JWKS to avoid fetching on every request
-_jwks_cache: dict | None = None
-
-async def get_jwks() -> dict:
-    global _jwks_cache
-    if _jwks_cache is None:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(AUTH0_JWKS_URL)
-            resp.raise_for_status()
-            _jwks_cache = resp.json()
-    return _jwks_cache
 
 async def verify_token(token: str) -> TokenData:
-    """Verify and decode an Auth0 JWT access token."""
+    """Verify and decode our own HS256 JWT."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        jwks = await get_jwks()
-
-        # Decode header to find the key ID (kid)
-        unverified_header = jwt.get_unverified_header(token)
-        rsa_key = {}
-        for key in jwks["keys"]:
-            if key["kid"] == unverified_header.get("kid"):
-                rsa_key = {
-                    "kty": key["kty"],
-                    "kid": key["kid"],
-                    "n":   key["n"],
-                    "e":   key["e"],
-                }
-                break
-
-        if not rsa_key:
-            raise credentials_exception
-
-        payload = jwt.decode(
+        payload = pyjwt.decode(
             token,
-            rsa_key,
-            algorithms=["RS256"],
-            issuer=f"{AUTH0_BASE_URL}/",
+            settings.secret_key,
+            algorithms=["HS256"],
         )
-
         return TokenData(
             sub=payload["sub"],
             email=payload.get("email"),
             name=payload.get("name"),
             picture=payload.get("picture"),
         )
-
-    except JWTError:
+    except pyjwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except pyjwt.PyJWTError:
         raise credentials_exception
+
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Security(security),

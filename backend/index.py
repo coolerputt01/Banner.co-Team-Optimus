@@ -1,6 +1,7 @@
 import secrets
 import httpx
 import uuid
+import jwt as pyjwt
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
@@ -158,10 +159,20 @@ async def callback(
 
     user = await get_or_create_user(db, token_data)
 
-    # Redirect frontend to /auth/callback with token in query param
-    # so the React AuthCallback page can pick it up
+    # Issue our own signed JWT so the frontend can call protected endpoints
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub":   user.id,
+        "email": user.email,
+        "name":  user.business_name,
+        "iat":   now,
+        "exp":   now + timedelta(days=30),
+    }
+    our_token = pyjwt.encode(payload, settings.secret_key, algorithm="HS256")
+
+    # Redirect frontend to /auth/callback with our token
     frontend_base = settings.frontend_url.rstrip("/")
-    redirect_url = f"{frontend_base}/auth/callback?access_token={access_token}"
+    redirect_url = f"{frontend_base}/auth/callback?access_token={our_token}"
     return RedirectResponse(redirect_url, status_code=302)
 
 
