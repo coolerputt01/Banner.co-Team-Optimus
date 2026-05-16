@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, field_validator
-from typing import Optional, List
+from typing import Optional, List, Any
 from decimal import Decimal
 from datetime import datetime
 
@@ -76,7 +76,7 @@ class AdResponse(BaseModel):
 
     @field_validator("tags", mode="before")
     @classmethod
-    def tags_not_none(cls, v: object) -> List[str]:
+    def tags_not_none(cls, v: Any) -> List[str]:
         return v if isinstance(v, list) else []
 
     model_config = {"from_attributes": True}
