@@ -1,50 +1,12 @@
-export interface UserProfile {
-  id: string;
-  name: string;
-  username: string;
-  bio: string;
-  avatar: string;
-  coverImage?: string;
-  isVerified: boolean;
-  joinDate: string;
+export interface User {
+  id: string
+  email: string
+  business_name: string
+  profile_picture?: string | null
+  banner_picture?: string | null
+  bio?: string | null
+  number_of_ads_watched: number
+  total_ads_watch_time: number
+  verified: boolean
+  wallet?: { balance: number } | null
 }
-
-export interface EarningsData {
-  totalEarned: number;
-  availableBalance: number;
-  pendingBalance: number;
-  adsWatched: number;
-  watchTime: number; // in minutes
-  currency: string;
-}
-
-export interface WalletTransaction {
-  id: string;
-  type: "credit" | "debit" | "withdrawal";
-  amount: number;
-  date: string;
-  description: string;
-  status: "completed" | "pending" | "failed";
-}
-
-export interface BookmarkedAd {
-  id: string;
-  brandName: string;
-  brandAvatar: string;
-  headline: string;
-  thumbnail: string;
-  category: string;
-  earnings: number;
-  bookmarkedAt: string;
-  views: number;
-}
-
-export interface SharedAd {
-  id: string;
-  brandName: string;
-  thumbnail: string;
-  sharedAt: string;
-  platform: "twitter" | "whatsapp" | "instagram" | "copy";
-}
-
-export type ProfileTab = "bookmarks" | "shared" | "earnings" | "activity";

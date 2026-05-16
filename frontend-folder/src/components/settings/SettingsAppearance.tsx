@@ -1,7 +1,7 @@
 import React from "react";
 import { Sun, Moon, Monitor } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
-import { ThemeMode } from "@/types/settingsType";
+import type { ThemeMode } from "@/types/index";
 
 interface AppearanceOptionConfig {
   mode: ThemeMode;

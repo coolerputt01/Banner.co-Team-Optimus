@@ -1,15 +1,18 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig({
-  plugins: [react(),],
+  plugins: [react()],
   server: {
     port: 3000,
     open: true,
   },
   resolve: {
     alias: {
-      '@': '/src',
+      '@': path.resolve(__dirname, './src'),
     },
+    // Deduplicate React — prevents "multiple copies of React" errors
+    dedupe: ['react', 'react-dom'],
   },
 });
