@@ -76,10 +76,16 @@ const AdCard: React.FC<AdCardProps> = ({ ad, isActive, isAuthenticated, onCommen
   useEffect(() => {
     if (!isActive || !isAuthenticated) return
     isLiked(ad.id)
-      .then((r) => setLiked(r.data?.liked ?? false))
+      .then((r) => {
+        const data = r.data as { liked: boolean }
+        setLiked(data?.liked ?? false)
+      })
       .catch(() => {})
     getLikeCount(ad.id)
-      .then((r) => setLikeCount(r.data?.count ?? ad.likes ?? 0))
+      .then((r) => {
+        const data = r.data as { count: number }
+        setLikeCount(data?.count ?? ad.likes ?? 0)
+      })
       .catch(() => {})
   }, [isActive, isAuthenticated, ad.id, ad.likes])
 
@@ -233,7 +239,7 @@ const CommentSheet: React.FC<CommentSheetProps> = ({ adId, onClose }) => {
     getComments(adId)
       .then((r) => setComments(r.data as Comment[]))
       .catch(() => {})
-      .finally(() => setLoading(false))
+      .then(() => setLoading(false))
   }, [adId])
 
   const handlePost = async () => {

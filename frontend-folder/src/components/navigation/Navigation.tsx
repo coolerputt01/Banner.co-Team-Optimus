@@ -45,7 +45,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
 
         {/* Nav links */}
         <nav className="flex-1 space-y-1">
-          {navItems.map(({ id, label, Icon, link }) => {
+          {navItems.map(({ id, label, Icon }) => {
             const active = activeTab === id
             return (
               <button
@@ -84,7 +84,7 @@ export const Navigation: React.FC<NavigationProps> = ({ activeTab, onTabChange }
         style={{ paddingBottom: 'env(safe-area-inset-bottom, 8px)' }}
       >
         <div className="flex items-center justify-around px-2 pt-1 pb-2">
-          {navItems.map(({ id, label, Icon, link }) => {
+          {navItems.map(({ id, label, Icon }) => {
             const active = activeTab === id
             const isCreate = id === 'create'
             return (

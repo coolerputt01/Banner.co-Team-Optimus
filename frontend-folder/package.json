@@ -12,7 +12,6 @@
   "dependencies": {
     "@lglab/react-qr-code": "^1.4.9",
     "@tailwindcss/postcss": "^4.2.1",
-    "@types/axios": "^0.9.36",
     "@types/react-router-dom": "^5.3.3",
     "axios": "^1.13.6",
     "date-fns": "^4.1.0",
