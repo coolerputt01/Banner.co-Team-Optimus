@@ -15,7 +15,7 @@ const Settings: React.FC = () => {
       <Navigation
         activeTab={navTab}
         onTabChange={(t) => setNavTab(t as typeof navTab)}
-        onUpload={() => navigate("/upload")}
+        onUpload={() => navigate("/create-ad")}
       />
 
       <div className="flex-1 flex flex-col lg:ml-64 min-h-screen">
@@ -58,6 +58,14 @@ const Settings: React.FC = () => {
             {/* Right column */}
             <div>
               <SettingsAppearance />
+
+              <SettingsSection
+                title="Advertise"
+                items={[
+                  { id: "create-ad", icon: "campaign", label: "Create an Ad", type: "link" },
+                ]}
+                onItemClick={() => navigate("/create-ad")}
+              />
 
               <SettingsSection
                 title="Support"

@@ -204,7 +204,7 @@ const Inbox: React.FC = () => {
         <Navigation
           activeTab={navTab}
           onTabChange={(t) => handleNavChange(t as typeof navTab)}
-          onUpload={() => navigate("/upload")}
+          onUpload={() => navigate("/create-ad")}
         />
 
         {/* Main content — offset by sidebar on desktop */}

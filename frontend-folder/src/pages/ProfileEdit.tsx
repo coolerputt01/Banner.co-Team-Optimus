@@ -31,7 +31,7 @@ const ProfileEdit: React.FC = () => {
       <Navigation
         activeTab={navTab}
         onTabChange={(t) => setNavTab(t as typeof navTab)}
-        onUpload={() => navigate("/upload")}
+        onUpload={() => navigate("/create-ad")}
       />
 
       <div className="flex-1 flex flex-col lg:ml-64 min-h-screen">

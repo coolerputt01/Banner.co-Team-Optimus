@@ -281,7 +281,7 @@ const Wallet: React.FC = () => {
       <Navigation
         activeTab={navTab}
         onTabChange={(t) => setNavTab(t as typeof navTab)}
-        onUpload={() => navigate("/upload")}
+        onUpload={() => navigate("/create-ad")}
       />
 
       <main className="flex-1 flex flex-col lg:ml-64 xl:ml-72 min-h-screen overflow-y-auto no-scrollbar">

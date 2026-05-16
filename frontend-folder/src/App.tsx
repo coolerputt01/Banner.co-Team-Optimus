@@ -10,6 +10,7 @@ import Inbox from "./pages/Inbox";
 import Wallet from "./pages/Wallet";
 import NotFound from "./pages/NotFound";
 import ProfileEdit from "./pages/ProfileEdit";
+import CreateAd from "./pages/CreateAd";
 
 // Settings sub-pages
 import ManageAccount from "./pages/settings/ManageAccount";
@@ -41,6 +42,7 @@ function App() {
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/inbox" element={<Inbox />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/create-ad" element={<CreateAd />} />
 
             {/* Settings sub-pages */}
             <Route path="/settings/manage-account" element={<ManageAccount />} />

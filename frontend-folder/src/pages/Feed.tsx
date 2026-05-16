@@ -60,7 +60,7 @@ const Feed: React.FC = () => {
       <Navigation
         activeTab={navTab}
         onTabChange={(t) => setNavTab(t as typeof navTab)}
-        onUpload={() => navigate("/upload")}
+        onUpload={() => navigate("/create-ad")}
       />
 
       {/* Main feed area — offset by sidebar on desktop */}
@@ -112,6 +112,17 @@ const Feed: React.FC = () => {
           )}
         </div>
       </main>
+
+      {/* FAB — Create Ad (mobile only, above nav bar) */}
+      <button
+        onClick={() => navigate("/create-ad")}
+        className="fixed bottom-24 right-5 z-40 w-14 h-14 bg-primary rounded-full shadow-2xl shadow-primary/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform lg:hidden"
+        aria-label="Create Ad"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+      </button>
 
       {/* Right sidebar — desktop only */}
       <aside className="hidden xl:flex flex-col w-[360px] border-l border-border-subtle p-8 bg-surface/30 transition-colors">
